@@ -34,18 +34,35 @@ class ReminderService
                 throw new Exception('Failed to decode reminders JSON: ' . json_last_error_msg());
             }
 
-            $reminders = array_map(function($reminderData) {
+            return array_map(function ($reminderData) {
                 return new Reminder(
                     $reminderData['message'],
                     $reminderData['phoneNumber'],
                     $reminderData['dateTime'],
-                    $reminderData['mood']
+                    $reminderData['mood'],
+                    $reminderData['id']
                 );
             }, $remindersData);
-
-            return $reminders;
         } catch (Exception $e) {
             error_log('Error fetching reminders: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public function deleteReminder($id)
+    {
+        try {
+            $reminders = $this->getReminders();
+            $reminders = array_filter($reminders, function ($reminder) use ($id) {
+                return $reminder->id !== $id;
+            });
+
+            $reminders = array_values($reminders);
+
+            file_put_contents($this->filePath, json_encode($reminders));
+            return true;
+        } catch (Exception $e) {
+            error_log('Error deleting reminder: ' . $e->getMessage());
             throw $e;
         }
     }

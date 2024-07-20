@@ -15,11 +15,11 @@ class ZAPIService
     public function __construct()
     {
         $config = require __DIR__ . '/../../config/config.php';
-        $this->apiKey = $config['zapi_client_token'];
+        $this->apiKey = $config['zapi_header_token'];
         $this->instanceId = $config['zapi_instance_id'];
         $this->token = $config['zapi_token'];
         $this->client = new Client([
-            'verify' => false 
+            'verify' => false
         ]);
     }
 
