@@ -13,36 +13,55 @@ class ReminderService
     {
         $this->filePath = __DIR__ . '/../../storage/reminders.json';
         if (!file_exists($this->filePath)) {
-            file_put_contents($this->filePath, json_encode([]));
+            file_put_contents($this->filePath, json_encode(['total' => 0, 'reminders' => []]));
         }
     }
 
     public function addReminder(Reminder $reminder)
     {
-        $reminders = $this->getReminders();
-        $reminders[] = $reminder;
-        file_put_contents($this->filePath, json_encode($reminders));
-        return $reminder;
+        $data = json_decode(file_get_contents($this->filePath), true);
+
+        if (!isset($data['reminders'])) {
+            $data['reminders'] = [];
+        }
+
+        $data['reminders'][] = [
+            'id' => $reminder->id,
+            'message' => $reminder->message,
+            'phoneNumber' => $reminder->phoneNumber,
+            'dateTime' => $reminder->dateTime,
+            'mood' => $reminder->mood,
+        ];
+
+        $data['total'] = count($data['reminders']);
+
+        try {
+            file_put_contents($this->filePath, json_encode($data, JSON_PRETTY_PRINT));
+            return $reminder;
+        } catch (Exception $e) {
+            error_log('Error saving reminder: ' . $e->getMessage());
+            throw $e;
+        }
     }
 
-    public function getReminders()
+    public function getReminders($page = 1, $perPage = 5)
     {
         try {
-            $remindersData = json_decode(file_get_contents($this->filePath), true);
+            $data = json_decode(file_get_contents($this->filePath), true);
 
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new Exception('Failed to decode reminders JSON: ' . json_last_error_msg());
+            if (!isset($data['reminders'])) {
+                $data['reminders'] = [];
             }
 
-            return array_map(function ($reminderData) {
-                return new Reminder(
-                    $reminderData['message'],
-                    $reminderData['phoneNumber'],
-                    $reminderData['dateTime'],
-                    $reminderData['mood'],
-                    $reminderData['id']
-                );
-            }, $remindersData);
+            $total = count($data['reminders']);
+            $start = ($page - 1) * $perPage;
+            $end = min($start + $perPage, $total);
+            $pagedReminders = array_slice($data['reminders'], $start, $end - $start);
+
+            return [
+                'total' => $total,
+                'reminders' => $pagedReminders
+            ];
         } catch (Exception $e) {
             error_log('Error fetching reminders: ' . $e->getMessage());
             throw $e;
@@ -52,15 +71,19 @@ class ReminderService
     public function deleteReminder($id)
     {
         try {
-            $reminders = $this->getReminders();
-            $reminders = array_filter($reminders, function ($reminder) use ($id) {
-                return $reminder->id !== $id;
+            $data = json_decode(file_get_contents($this->filePath), true);
+
+            if (!isset($data['reminders'])) {
+                $data['reminders'] = [];
+            }
+
+            $data['reminders'] = array_filter($data['reminders'], function ($reminder) use ($id) {
+                return $reminder['id'] !== $id;
             });
 
-            $reminders = array_values($reminders);
+            $data['total'] = count($data['reminders']);
 
-            file_put_contents($this->filePath, json_encode($reminders));
-            return true;
+            file_put_contents($this->filePath, json_encode($data, JSON_PRETTY_PRINT));
         } catch (Exception $e) {
             error_log('Error deleting reminder: ' . $e->getMessage());
             throw $e;

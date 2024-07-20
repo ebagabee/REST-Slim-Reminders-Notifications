@@ -22,10 +22,6 @@ $app->addRoutingMiddleware();
 $app->addBodyParsingMiddleware();
 $app->addErrorMiddleware(true, true, true);
 
-$app->options('/{routes:.+}', function ($request, $response, $args) {
-    return $response;
-});
-
 $app->add(function (ServerRequestInterface $request, RequestHandlerInterface $handler) {
     $response = $handler->handle($request);
     return $response
@@ -36,7 +32,7 @@ $app->add(function (ServerRequestInterface $request, RequestHandlerInterface $ha
 
 $app->post('/api/reminder', [ReminderController::class, 'addReminder']);
 $app->get('/api/reminders', [ReminderController::class, 'getReminders']);
+$app->post('/api/send-reminder', [ReminderController::class, 'sendReminderToWhatsapp']);
 $app->delete('/api/reminder/{id}', [ReminderController::class, 'deleteReminder']);
-$app->post('/api/send-message', [ReminderController::class, 'sendReminderToWhatsApp']);
 
 $app->run();

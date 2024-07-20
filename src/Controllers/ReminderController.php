@@ -68,11 +68,7 @@ class ReminderController
             return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
         }
 
-        $dateTime = $this->extractDateFromMessage($message);
-        if (!$dateTime) {
-            $response->getBody()->write(json_encode(['error' => 'Não foi possível extrair a data e hora da mensagem']));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
-        }
+        $dateTime = $this->extractDateFromMessage($message) ?? Carbon::now()->format('Y-m-d H:i:s');
 
         $reminder = new Reminder($message, $phoneNumber, $dateTime, $mood);
         $this->reminderService->addReminder($reminder);
@@ -80,33 +76,6 @@ class ReminderController
         $response->getBody()->write(json_encode(['success' => 'Lembrete adicionado com sucesso']));
         return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
     }
-
-    public function deleteReminder(Request $request, Response $response, $args)
-    {
-        $id = $args['id'] ?? null;
-
-        if (!$id) {
-            $response->getBody()->write(json_encode(['error' => 'ID do lembrete é obrigatório']));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
-        }
-
-        try {
-            $deleted = $this->reminderService->deleteReminder($id);
-
-            if ($deleted) {
-                $response->getBody()->write(json_encode(['success' => 'Lembrete deletado com sucesso']));
-                return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
-            } else {
-                $response->getBody()->write(json_encode(['error' => 'Lembrete não encontrado']));
-                return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
-            }
-        } catch (Exception $e) {
-            error_log('Error in deleteReminder: ' . $e->getMessage());
-            $response->getBody()->write(json_encode(['error' => 'Erro ao processar a solicitação']));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
-        }
-    }
-
 
     public function sendReminderToWhatsapp(Request $request, Response $response)
     {
@@ -141,13 +110,31 @@ class ReminderController
 
     public function getReminders(Request $request, Response $response)
     {
+        $page = $request->getQueryParams()['page'] ?? 1;
+        $perPage = $request->getQueryParams()['perPage'] ?? 5;
+
         try {
-            $reminders = $this->reminderService->getReminders();
+            $reminders = $this->reminderService->getReminders($page, $perPage);
             $response->getBody()->write(json_encode($reminders));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
         } catch (Exception $e) {
             error_log('Error in getReminders: ' . $e->getMessage());
             $response->getBody()->write(json_encode(['error' => $e->getMessage()]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+        }
+    }
+
+    public function deleteReminder(Request $request, Response $response, $args)
+    {
+        $id = $args['id'];
+
+        try {
+            $this->reminderService->deleteReminder($id);
+            $response->getBody()->write(json_encode(['success' => 'Lembrete excluído com sucesso']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+        } catch (Exception $e) {
+            error_log('Error in deleteReminder: ' . $e->getMessage());
+            $response->getBody()->write(json_encode(['error' => 'Erro ao excluir lembrete']));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
         }
     }
