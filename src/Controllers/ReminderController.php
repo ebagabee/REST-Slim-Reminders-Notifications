@@ -6,9 +6,7 @@ use App\Models\Reminder;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use App\Services\ReminderService;
-use App\Services\ZAPIService;
 use App\Services\OpenAIService;
-use Carbon\Carbon;
 use Exception;
 use App\Helpers\JsonHelper;
 use App\Services\ValidationService;
@@ -18,7 +16,6 @@ use App\Services\WhatsappService;
 class ReminderController
 {
     private $reminderService;
-    private $zapiService;
     private $openAIService;
     private $validationService;
     private $messageProcessingService;
@@ -26,37 +23,16 @@ class ReminderController
 
     public function __construct(
         ReminderService $reminderService,
-        ZAPIService $zapiService,
         OpenAIService $openAIService,
         ValidationService $validationService,
         MessageProcessingService $messageProcessingService,
         WhatsappService $whatsappService
     ) {
         $this->reminderService = $reminderService;
-        $this->zapiService = $zapiService;
         $this->openAIService = $openAIService;
         $this->validationService = $validationService;
         $this->messageProcessingService = $messageProcessingService;
         $this->whatsappService = $whatsappService;
-    }
-
-    public function addReminder(Request $request, Response $response)
-    {
-        try {
-            $data = $request->getParsedBody();
-            list($message, $phoneNumber, $mood) = $this->validationService->validateReminderData($data);
-            list($event, $dateTime) = $this->messageProcessingService->analyzeMessage($message);
-
-            $reminder = new Reminder($event, $phoneNumber, $dateTime, $mood);
-            $this->reminderService->addReminder($reminder);
-
-            return JsonHelper::jsonResponse($response, ['success' => 'Lembrete adicionado com sucesso'], 201);
-        } catch (\InvalidArgumentException $e) {
-            return JsonHelper::jsonResponse($response, ['error' => $e->getMessage()], 400);
-        } catch (Exception $e) {
-            error_log('Erro ao adicionar lembrete: ' . $e->getMessage());
-            return JsonHelper::jsonResponse($response, ['error' => 'Erro ao adicionar lembrete'], 500);
-        }
     }
 
     public function getReminders(Request $request, Response $response)
@@ -78,18 +54,35 @@ class ReminderController
         }
     }
 
+    public function addReminder(Request $request, Response $response)
+    {
+        try {
+            $data = $request->getParsedBody();
+            list($message, $phoneNumber, $mood) = $this->validationService->validateReminderData($data);
+            list($event, $dateTime) = $this->messageProcessingService->analyzeMessage($message);
+
+            $reminder = new Reminder($event, $phoneNumber, $dateTime, $mood);
+            $this->reminderService->addReminder($reminder);
+
+            return JsonHelper::jsonResponse($response, ['success' => 'Lembrete adicionado com sucesso'], 201);
+        } catch (\InvalidArgumentException $e) {
+            return JsonHelper::jsonResponse($response, ['error' => $e->getMessage()], 400);
+        } catch (Exception $e) {
+            error_log('Erro ao adicionar lembrete: ' . $e->getMessage());
+            return JsonHelper::jsonResponse($response, ['error' => 'Erro ao adicionar lembrete'], 500);
+        }
+    }
+
     public function deleteReminder(Request $request, Response $response, $args)
     {
         $id = $args['id'];
 
         try {
             $this->reminderService->deleteReminder($id);
-            $response->getBody()->write(json_encode(['success' => 'Lembrete excluído com sucesso']));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+            return JsonHelper::jsonResponse($response, ['success' => 'Lembrete excluído com sucesso'], 200);
         } catch (Exception $e) {
             error_log('Error in deleteReminder: ' . $e->getMessage());
-            $response->getBody()->write(json_encode(['error' => 'Erro ao excluir lembrete']));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+            return JsonHelper::jsonResponse($response, ['error' => 'Erro ao excluir lembrete'], 500);
         }
     }
 
