@@ -1,12 +1,4 @@
 {
-    "reminders": [
-        {
-            "id": "66a1702c4593f",
-            "message": "Entrevista",
-            "phoneNumber": "5582991342464",
-            "dateTime": "2024-07-25 17:00:00",
-            "mood": "Bob Esponja"
-        }
-    ],
-    "total": 1
+    "reminders": [],
+    "total": 0
 }

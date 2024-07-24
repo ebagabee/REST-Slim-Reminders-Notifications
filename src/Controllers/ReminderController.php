@@ -12,6 +12,7 @@ use App\Helpers\JsonHelper;
 use App\Services\ValidationService;
 use App\Services\MessageProcessingService;
 use App\Services\WhatsappService;
+use Carbon\Carbon;
 
 class ReminderController
 {
@@ -60,6 +61,10 @@ class ReminderController
             $data = $request->getParsedBody();
             list($message, $phoneNumber, $mood) = $this->validationService->validateReminderData($data);
             list($event, $dateTime) = $this->messageProcessingService->analyzeMessage($message);
+
+            if ($dateTime < Carbon::now('America/Sao_Paulo')->setSecond(0)) {
+                throw new \InvalidArgumentException("Calma lá, amigao, ainda não inventamos a maquina do tempo");
+            }
 
             $reminder = new Reminder($event, $phoneNumber, $dateTime, $mood);
             $this->reminderService->addReminder($reminder);
