@@ -39,14 +39,20 @@ class ReminderController
             return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
         }
 
-        $dateTime = $this->dateHandler->extractDateFromMessage($message) ?? Carbon::now();
+        list($event, $dateTime) = $this->openAIService->analyzeMessage($message);
 
-        $reminder = new Reminder($message, $phoneNumber, $dateTime->format('Y-m-d H:i:s'), $mood);
+        if (!$dateTime) {
+            $dateTime = Carbon::now('America/Sao_Paulo')->format('Y-m-d H:i:s');
+        }
+
+        $reminder = new Reminder($event, $phoneNumber, $dateTime, $mood);
         $this->reminderService->addReminder($reminder);
 
         $response->getBody()->write(json_encode(['success' => 'Lembrete adicionado com sucesso']));
         return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
     }
+
+
 
     public function sendReminderToWhatsapp(Request $request, Response $response)
     {

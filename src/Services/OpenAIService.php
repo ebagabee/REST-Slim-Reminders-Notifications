@@ -4,6 +4,7 @@ namespace App\Services;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use Carbon\Carbon;
 
 class OpenAIService
 {
@@ -18,6 +19,49 @@ class OpenAIService
             'verify' => false
         ]);
     }
+
+    public function analyzeMessage($message)
+    {
+        $currentDate = Carbon::now('America/Sao_Paulo')->format('Y-m-d H:i:s');
+        $prompt = "A data atual é $currentDate. Por favor, extraia o evento e a data/hora da seguinte mensagem: '$message'. Retorne o resultado no formato 'evento;YYYY-MM-DD HH:MM:SS'. Se não encontrar uma data/hora, use a data e hora atuais.";
+
+        $url = 'https://api.openai.com/v1/chat/completions';
+
+        try {
+            $response = $this->client->post($url, [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                    'Content-Type' => 'application/json'
+                ],
+                'json' => [
+                    'model' => 'gpt-3.5-turbo',
+                    'messages' => [
+                        [
+                            'role' => 'user',
+                            'content' => $prompt
+                        ]
+                    ],
+                    'max_tokens' => 150
+                ]
+            ]);
+
+            $body = json_decode($response->getBody(), true);
+            $content = $body['choices'][0]['message']['content'] ?? null;
+
+            if ($content) {
+                $parts = explode(';', $content);
+                $event = isset($parts[0]) ? trim($parts[0]) : null;
+                $dateTime = isset($parts[1]) ? trim($parts[1]) : null;
+                return [$event, $dateTime];
+            }
+
+            return [null, null];
+        } catch (RequestException $e) {
+            error_log('Error in analyzeMessage: ' . $e->getMessage());
+            return [null, null];
+        }
+    }
+
 
     public function generateMessage($event, $character)
     {
