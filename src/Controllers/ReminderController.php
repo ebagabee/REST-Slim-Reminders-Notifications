@@ -2,7 +2,6 @@
 
 namespace App\Controllers;
 
-use App\Handlers\DateHandler;
 use App\Models\Reminder;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -11,76 +10,52 @@ use App\Services\ZAPIService;
 use App\Services\OpenAIService;
 use Carbon\Carbon;
 use Exception;
+use App\Helpers\JsonHelper;
+use App\Services\ValidationService;
+use App\Services\MessageProcessingService;
+use App\Services\WhatsappService;
 
 class ReminderController
 {
     private $reminderService;
     private $zapiService;
     private $openAIService;
-    private $dateHandler;
+    private $validationService;
+    private $messageProcessingService;
+    private $whatsappService;
 
-    public function __construct(ReminderService $reminderService, ZAPIService $zapiService, OpenAIService $openAIService, DateHandler $dateHandler)
-    {
+    public function __construct(
+        ReminderService $reminderService,
+        ZAPIService $zapiService,
+        OpenAIService $openAIService,
+        ValidationService $validationService,
+        MessageProcessingService $messageProcessingService,
+        WhatsappService $whatsappService
+    ) {
         $this->reminderService = $reminderService;
         $this->zapiService = $zapiService;
         $this->openAIService = $openAIService;
-        $this->dateHandler = $dateHandler;
+        $this->validationService = $validationService;
+        $this->messageProcessingService = $messageProcessingService;
+        $this->whatsappService = $whatsappService;
     }
 
     public function addReminder(Request $request, Response $response)
     {
-        $data = $request->getParsedBody();
-        $message = $data['message'] ?? null;
-        $phoneNumber = $data['phoneNumber'] ?? null;
-        $mood = $data['mood'] ?? null;
-
-        if (!$message || !$phoneNumber || !$mood) {
-            $response->getBody()->write(json_encode(['error' => 'Mensagem, número de telefone e humor são obrigatórios']));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
-        }
-
-        list($event, $dateTime) = $this->openAIService->analyzeMessage($message);
-
-        if (!$dateTime) {
-            $dateTime = Carbon::now('America/Sao_Paulo')->format('Y-m-d H:i:s');
-        }
-
-        $reminder = new Reminder($event, $phoneNumber, $dateTime, $mood);
-        $this->reminderService->addReminder($reminder);
-
-        $response->getBody()->write(json_encode(['success' => 'Lembrete adicionado com sucesso']));
-        return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
-    }
-
-
-
-    public function sendReminderToWhatsapp(Request $request, Response $response)
-    {
-        $data = $request->getParsedBody();
-        $message = $data['message'] ?? null;
-        $phoneNumber = $data['phoneNumber'] ?? null;
-        $character = $data['character'] ?? 'Bob Esponja';
-
-        if (!$message || !$phoneNumber || !$character) {
-            $response->getBody()->write(json_encode(['error' => 'Mensagem, número de telefone e personagem são obrigatórios']));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
-        }
-
         try {
-            $aiMessage = $this->openAIService->generateMessage($message, $character);
-            $result = $this->zapiService->sendReminder($aiMessage, $phoneNumber);
+            $data = $request->getParsedBody();
+            list($message, $phoneNumber, $mood) = $this->validationService->validateReminderData($data);
+            list($event, $dateTime) = $this->messageProcessingService->analyzeMessage($message);
 
-            if (strpos($result, 'error') !== false) {
-                $response->getBody()->write(json_encode(['error' => 'Falha ao enviar a mensagem']));
-                return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
-            }
+            $reminder = new Reminder($event, $phoneNumber, $dateTime, $mood);
+            $this->reminderService->addReminder($reminder);
 
-            $response->getBody()->write(json_encode(['success' => 'Mensagem enviada com sucesso']));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+            return JsonHelper::jsonResponse($response, ['success' => 'Lembrete adicionado com sucesso'], 201);
+        } catch (\InvalidArgumentException $e) {
+            return JsonHelper::jsonResponse($response, ['error' => $e->getMessage()], 400);
         } catch (Exception $e) {
-            error_log('Error in sendReminderToWhatsapp: ' . $e->getMessage());
-            $response->getBody()->write(json_encode(['error' => 'Erro ao processar a solicitação']));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+            error_log('Erro ao adicionar lembrete: ' . $e->getMessage());
+            return JsonHelper::jsonResponse($response, ['error' => 'Erro ao adicionar lembrete'], 500);
         }
     }
 
@@ -116,5 +91,31 @@ class ReminderController
             $response->getBody()->write(json_encode(['error' => 'Erro ao excluir lembrete']));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
         }
+    }
+
+    public function sendReminderToWhatsapp(Request $request, Response $response)
+    {
+        try {
+            $data = $request->getParsedBody();
+            list($message, $phoneNumber, $character) = $this->validationService->validateSendReminderData($data);
+
+            $aiMessage = $this->generateAiMessage($message, $character);
+
+            $this->whatsappService->sendReminder($aiMessage, $phoneNumber);
+
+            return JsonHelper::jsonResponse($response, ['success' => 'Mensagem enviada com sucesso'], 200);
+        } catch (\InvalidArgumentException $e) {
+            return JsonHelper::jsonResponse($response, ['error' => $e->getMessage()], 400);
+        } catch (\RuntimeException $e) {
+            return JsonHelper::jsonResponse($response, ['error' => $e->getMessage()], 500);
+        } catch (Exception $e) {
+            error_log('Erro ao enviar lembrete para WhatsApp: ' . $e->getMessage());
+            return JsonHelper::jsonResponse($response, ['error' => 'Erro ao processar a solicitação'], 500);
+        }
+    }
+
+    private function generateAiMessage($message, $character)
+    {
+        return $this->openAIService->generateMessage($message, $character);
     }
 }

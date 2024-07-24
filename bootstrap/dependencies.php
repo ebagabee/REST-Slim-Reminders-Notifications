@@ -1,7 +1,5 @@
 <?php
 
-use App\Handlers\DateHandler;
-use App\Handlers\MessageHandler;
 use App\Services\ReminderService;
 use App\Services\ZAPIService;
 use App\Services\OpenAIService;
@@ -16,11 +14,5 @@ return [
     },
     OpenAIService::class => function (ContainerInterface $container) {
         return new OpenAIService();
-    },
-    DateHandler::class => function (ContainerInterface $container) {
-        return new DateHandler();
-    },
-    MessageHandler::class => function (ContainerInterface $container) {
-        return new MessageHandler();
     }
 ];
