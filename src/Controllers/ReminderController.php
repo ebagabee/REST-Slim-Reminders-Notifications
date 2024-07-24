@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Handlers\DateHandler;
 use App\Models\Reminder;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -16,44 +17,14 @@ class ReminderController
     private $reminderService;
     private $zapiService;
     private $openAIService;
+    private $dateHandler;
 
-    public function __construct(ReminderService $reminderService, ZAPIService $zapiService, OpenAIService $openAIService)
+    public function __construct(ReminderService $reminderService, ZAPIService $zapiService, OpenAIService $openAIService, DateHandler $dateHandler)
     {
         $this->reminderService = $reminderService;
         $this->zapiService = $zapiService;
         $this->openAIService = $openAIService;
-    }
-
-    private function extractDateFromMessage($message)
-    {
-        if (preg_match('/dia (\d{1,2}) de (\w+) de (\d{4})( às (\d{1,2}):(\d{2}))?/', $message, $matches)) {
-            $day = $matches[1];
-            $month = $matches[2];
-            $year = $matches[3];
-            $hour = isset($matches[5]) ? $matches[5] : '00';
-            $minute = isset($matches[6]) ? $matches[6] : '00';
-
-            $months = [
-                'janeiro' => 1, 'fevereiro' => 2, 'março' => 3, 'abril' => 4, 'maio' => 5,
-                'junho' => 6, 'julho' => 7, 'agosto' => 8, 'setembro' => 9, 'outubro' => 10,
-                'novembro' => 11, 'dezembro' => 12
-            ];
-
-            if (isset($months[$month])) {
-                $monthNumber = $months[$month];
-                return Carbon::create($year, $monthNumber, $day, $hour, $minute)->format('Y-m-d H:i:s');
-            }
-        } elseif (preg_match('/(hoje|amanhã)( às (\d{1,2}):(\d{2}))?/', strtolower($message), $matches)) {
-            $now = Carbon::now();
-            $date = $matches[1] === 'amanhã' ? $now->addDay() : $now;
-
-            $hour = isset($matches[3]) ? $matches[3] : '00';
-            $minute = isset($matches[4]) ? $matches[4] : '00';
-
-            return $date->setTime($hour, $minute)->format('Y-m-d H:i:s');
-        }
-
-        return null;
+        $this->dateHandler = $dateHandler;
     }
 
     public function addReminder(Request $request, Response $response)
@@ -68,9 +39,9 @@ class ReminderController
             return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
         }
 
-        $dateTime = $this->extractDateFromMessage($message) ?? Carbon::now()->format('Y-m-d H:i:s');
+        $dateTime = $this->dateHandler->extractDateFromMessage($message) ?? Carbon::now();
 
-        $reminder = new Reminder($message, $phoneNumber, $dateTime, $mood);
+        $reminder = new Reminder($message, $phoneNumber, $dateTime->format('Y-m-d H:i:s'), $mood);
         $this->reminderService->addReminder($reminder);
 
         $response->getBody()->write(json_encode(['success' => 'Lembrete adicionado com sucesso']));
@@ -91,7 +62,6 @@ class ReminderController
 
         try {
             $aiMessage = $this->openAIService->generateMessage($message, $character);
-
             $result = $this->zapiService->sendReminder($aiMessage, $phoneNumber);
 
             if (strpos($result, 'error') !== false) {
