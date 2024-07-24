@@ -44,24 +44,35 @@ class ReminderService
         }
     }
 
-    public function getReminders($page = 1, $perPage = 5)
+    public function getReminders($page = 1, $perPage = 5, $startDate = null, $endDate = null)
     {
         try {
             $data = json_decode(file_get_contents($this->filePath), true);
+            $reminders = $data['reminders'] ?? [];
+            $total = count($reminders);
 
-            if (!isset($data['reminders'])) {
-                $data['reminders'] = [];
+            if ($startDate) {
+                $reminders = array_filter($reminders, function ($reminder) use ($startDate) {
+                    return $reminder['dateTime'] >= $startDate;
+                });
             }
 
-            $total = count($data['reminders']);
+            if ($endDate) {
+                $reminders = array_filter($reminders, function ($reminder) use ($endDate) {
+                    return $reminder['dateTime'] <= $endDate;
+                });
+            }
+
+
+            $totalFiltered = count($reminders);
             $start = ($page - 1) * $perPage;
-            $end = min($start + $perPage, $total);
-            $pagedReminders = array_slice($data['reminders'], $start, $end - $start);
+            $pageReminders = array_slice($reminders, $start, $perPage);
 
             return [
-                'total' => $total,
-                'reminders' => $pagedReminders
+                'total' => $totalFiltered,
+                'reminders' => $pageReminders
             ];
+
         } catch (Exception $e) {
             error_log('Error fetching reminders: ' . $e->getMessage());
             throw $e;

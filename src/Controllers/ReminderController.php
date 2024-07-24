@@ -80,11 +80,14 @@ class ReminderController
 
     public function getReminders(Request $request, Response $response)
     {
-        $page = $request->getQueryParams()['page'] ?? 1;
-        $perPage = $request->getQueryParams()['perPage'] ?? 5;
+        $queryParams = $request->getQueryParams();
+        $page = $queryParams['page'] ?? 1;
+        $perPage = $queryParams['perPage'] ?? 5;
+        $startDate = $queryParams['startDate'] ?? null;
+        $endDate = $queryParams['endDate'] ?? null;
 
         try {
-            $reminders = $this->reminderService->getReminders($page, $perPage);
+            $reminders = $this->reminderService->getReminders($page, $perPage, $startDate, $endDate);
             $response->getBody()->write(json_encode($reminders));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
         } catch (Exception $e) {
