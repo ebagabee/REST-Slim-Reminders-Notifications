@@ -138,6 +138,7 @@ class ReminderService
     {
         $data = $this->readData();
         $reminders = $this->filterReminders($data['reminders'], $startDate, $endDate);
+        $reminders = $this->sortRemindersByDate($reminders);
         $totalFiltered = count($reminders);
         $pageReminders = $this->paginateReminders($reminders, $page, $perPage);
 
@@ -182,6 +183,15 @@ class ReminderService
             $dateTime = $reminder['dateTime'];
             return (!$startDate || $dateTime >= $startDate) && (!$endDate || $dateTime <= $endDate);
         });
+    }
+
+    private function sortRemindersByDate(array $reminders)
+    {
+        usort($reminders, function ($a, $b) {
+            return strtotime($a['dateTime']) - strtotime($b['dateTime']);
+        });
+
+        return $reminders;
     }
 
     private function paginateReminders(array $reminders, $page, $perPage)
