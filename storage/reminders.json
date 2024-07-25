@@ -1,4 +1,33 @@
 {
-    "reminders": [],
-    "total": 0
+    "reminders": [
+        {
+            "id": "66a27b4b11883",
+            "message": "Entrevista",
+            "phoneNumber": "+55 (82) 99134-2464",
+            "dateTime": "2024-07-25 17:00:00",
+            "mood": "Bob Esponja"
+        },
+        {
+            "id": "66a27b961e0e9",
+            "message": "Beijar a Joyce",
+            "phoneNumber": "+55 (82) 99134-2464",
+            "dateTime": "2024-07-25 13:21:41",
+            "mood": "Bob Esponja"
+        },
+        {
+            "id": "66a27bea13171",
+            "message": "Passera com o cachorro",
+            "phoneNumber": "+55 (82) 99134-2464",
+            "dateTime": "2024-07-26 20:00:00",
+            "mood": "Darth Vader"
+        },
+        {
+            "id": "66a27c761784b",
+            "message": "Dan\u00e7ar Tango",
+            "phoneNumber": "+55 (82) 99134-2464",
+            "dateTime": "2024-07-25 13:25:25",
+            "mood": "Seu Siriguejo"
+        }
+    ],
+    "total": 4
 }

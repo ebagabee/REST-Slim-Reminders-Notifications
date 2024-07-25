@@ -63,7 +63,7 @@ class ReminderController
             list($event, $dateTime) = $this->messageProcessingService->analyzeMessage($message);
 
             if ($dateTime < Carbon::now('America/Sao_Paulo')->setSecond(0)) {
-                throw new \InvalidArgumentException("Calma lá, amigao, ainda não inventamos a maquina do tempo");
+                throw new \InvalidArgumentException("Calma lá amigão, ainda não inventamos a máquina do tempo");
             }
 
             $reminder = new Reminder($event, $phoneNumber, $dateTime, $mood);
